@@ -60,6 +60,7 @@ class Material(Asset):
 
 
 class PrincipledBSDFMaterial(Material):
+  """A physically based material suited for uniform colored plastic, rubber, metal, glass, etc..."""
   color = kt.RGBA(default_value=Color.from_name('white'))
   metallic = tl.Float(0.)
   specular = tl.Float(0.5)
@@ -71,9 +72,25 @@ class PrincipledBSDFMaterial(Material):
   emission = kt.RGBA(default_value=Color.from_name('black'))
 
 
+class FlatMaterial(Material):
+  """Renders the object as a uniform color without any shading.
+  If holdout is true, then the pixels of the object will be transparent in the final image (alpha=0).
+  (Note, that this is not the same as a transparent object. It still "occludes" other objects)
+
+  The indirect_visibility flag controls if the object casts shadows, can be seen in reflections and
+  emits light.
+  """
+  color = kt.RGBA(default_value=Color.from_name('white'))
+  holdout = tl.Bool(False)
+  indirect_visibility = tl.Bool(True)
+
+
 class MeshChromeMaterial(Material):
   color = kt.RGBA(default_value=Color.from_name('white'))
   roughness = tl.Float(0.4)
+
+
+
 
 # ## ### ####  3D Objects  #### ### ## #
 
@@ -103,6 +120,8 @@ class PhysicalObject(Object3D):
   bounds = tl.Tuple(kt.Vector3D(), kt.Vector3D(),
                     default_value=((0., 0., 0.), (0., 0, 0.)))
 
+  center_mesh = tl.Bool(False)
+
   @validate('mass')
   def _valid_mass(self, proposal):
     mass = proposal['value']
@@ -131,6 +150,14 @@ class PhysicalObject(Object3D):
       if l > u:
         raise tl.TraitError(f'lower bound cannot be larger than upper bound ({lower} !<= {upper})')
     return lower, upper
+
+
+class Cube(PhysicalObject):
+  material = tl.Instance(Material, allow_none=True, default_value=None)
+
+
+class Sphere(PhysicalObject):
+  material = tl.Instance(Material, allow_none=True, default_value=None)
 
 
 class FileBasedObject(PhysicalObject):
@@ -193,9 +220,10 @@ class Scene(Asset):
 
 
 class AttributeSetter:
-  def __init__(self, target_obj, target_name):
+  def __init__(self, target_obj, target_name, ignore_none=True):
     self.target_name = target_name
     self.target_obj = target_obj
+    self.ignore_none = ignore_none
     self.mapping = None  # has to be set by the add() function
 
   def __call__(self, change):
@@ -206,6 +234,8 @@ class AttributeSetter:
       self._set(self.target_name, change.new)
 
   def _set(self, name, value):
+    if value is None and self.ignore_none:
+      return
     if isinstance(value, Asset):
       value = self.mapping[value]  # convert kubric objects to blender objects before assigning
     setattr(self.target_obj, name, value)

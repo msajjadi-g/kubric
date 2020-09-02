@@ -228,6 +228,31 @@ def add_object(obj: Asset) -> Tuple[bpy.types.Object, Dict[str, AttributeSetter]
   raise NotImplementedError()
 
 
+@add_object.register(core.Cube)
+def _add_object(obj: core.Cube):
+  bpy.ops.mesh.primitive_cube_add()
+  cube = bpy.context.active_object
+  return cube, {
+      'position': AttributeSetter(cube, 'location'),
+      'quaternion': AttributeSetter(cube, 'rotation_quaternion'),
+      'scale': AttributeSetter(cube, 'scale'),
+      'material': AttributeSetter(cube, 'active_material')
+  }
+
+
+@add_object.register(core.Sphere)
+def _add_object(obj: core.Sphere):
+  bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5)
+  bpy.ops.object.shade_smooth()
+  cube = bpy.context.active_object
+  return cube, {
+      'position': AttributeSetter(cube, 'location'),
+      'quaternion': AttributeSetter(cube, 'rotation_quaternion'),
+      'scale': AttributeSetter(cube, 'scale'),
+      'material': AttributeSetter(cube, 'active_material')
+  }
+
+
 @add_object.register(core.FileBasedObject)
 def _add_object(obj: core.FileBasedObject):
   # TODO: support other file-formats
@@ -235,6 +260,9 @@ def _add_object(obj: core.FileBasedObject):
                            axis_forward=obj.front, axis_up=obj.up)
   assert len(bpy.context.selected_objects) == 1
   blender_obj = bpy.context.selected_objects[0]
+  if obj.center_mesh:
+    bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS')
+
 
   setters = {
       'position': AttributeSetter(blender_obj, 'location'),
@@ -335,6 +363,50 @@ def _add_object(obj: core.MeshChromeMaterial):
         'roughness': AttributeSetter(GLO.inputs[1], 'default_value')
     }
     return mat, setters
+
+
+@add_object.register(core.FlatMaterial)
+def _add_object(obj: core.FlatMaterial):
+  # --- Create node-based material
+  mat = bpy.data.materials.new('Holdout')
+  mat.use_nodes = True
+  tree = mat.node_tree
+  tree.remove(tree.nodes['Principled BSDF'])  # remove the default shader
+
+  output_node = tree.nodes['Material Output']
+
+  # This material is constructed from three different shaders:
+  #  1. if holdout=False then emission_node is responsible for giving the object a uniform color
+  #  2. if holdout=True, then the holdout_node is responsible for making the object transparent
+  #  3. if indirect_visibility=False then transparent_node makes the node invisible for indirect
+  #     effects such as shadows or reflections
+
+  light_path_node = tree.nodes.new(type="ShaderNodeLightPath")
+  holdout_node = tree.nodes.new(type="ShaderNodeHoldout")
+  transparent_node = tree.nodes.new(type="ShaderNodeBsdfTransparent")
+  holdout_mix_node = tree.nodes.new(type="ShaderNodeMixShader")
+  indirect_mix_node = tree.nodes.new(type="ShaderNodeMixShader")
+  overall_mix_node = tree.nodes.new(type="ShaderNodeMixShader")
+
+  emission_node = tree.nodes.new(type="ShaderNodeEmission")
+
+  tree.links.new(transparent_node.outputs['BSDF'], indirect_mix_node.inputs[1])
+  tree.links.new(emission_node.outputs['Emission'], indirect_mix_node.inputs[2])
+
+  tree.links.new(emission_node.outputs['Emission'], holdout_mix_node.inputs[1])
+  tree.links.new(holdout_node.outputs['Holdout'], holdout_mix_node.inputs[2])
+
+  tree.links.new(light_path_node.outputs['Is Camera Ray'], overall_mix_node.inputs['Fac'])
+  tree.links.new(indirect_mix_node.outputs['Shader'], overall_mix_node.inputs[1])
+  tree.links.new(holdout_mix_node.outputs['Shader'], overall_mix_node.inputs[2])
+
+  tree.links.new(overall_mix_node.outputs['Shader'], output_node.inputs['Surface'])
+
+  return mat, {
+      'color': AttributeSetter(emission_node.inputs['Color'], 'default_value'),
+      'holdout': AttributeSetter(holdout_mix_node.inputs['Fac'], 'default_value'),
+      'indirect_visibility': AttributeSetter(indirect_mix_node.inputs['Fac'], 'default_value'),
+  }
 
 
 @add_object.register(core.Scene)

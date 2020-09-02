@@ -111,3 +111,5 @@ for obj in objects:
 
 # --- Render or create the .blend file
 renderer.render(path=FLAGS.output)
+
+
