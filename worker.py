@@ -14,29 +14,35 @@
 
 import argparse
 import logging
+import pathlib
+
 import numpy as np
 
 import sys; sys.path.append(".")
 
-from kubric.assets.klevr import KLEVR
-from kubric.simulator import Simulator
-from kubric.core import Scene
-from kubric.viewer.blender import Blender
+from kubric import simulator
+from kubric import core
+from kubric.assets import klevr
+from kubric.viewer import blender
+
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--assets", type=str, default="KLEVR",
+parser.add_argument("--assets", type=str, default="./KLEVR",
                     help="e.g. '~/datasets/katamari' or 'gs://kubric/katamari'")
 parser.add_argument("--frame_rate", type=int, default=24)
 parser.add_argument("--step_rate", type=int, default=240)
 parser.add_argument("--frame_start", type=int, default=0)
 parser.add_argument("--frame_end", type=int, default=96)  # 4 seconds 
 parser.add_argument("--logging_level", type=str, default="INFO")
+parser.add_argument("--max_placement_trials", type=int, default=100)
 parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--resolution", type=int, default=512)
-parser.add_argument("--output", type=str, default='./output/')  # TODO: actually copy results there
+parser.add_argument("--width", type=int, default=512)
+parser.add_argument("--height", type=int, default=512)
+# TODO: support cloud storage
+parser.add_argument("--output", type=str, default="./output/", help="output directory")
 
 # --- parse argument in a way compatible with blender's REPL
 if "--" in sys.argv:
@@ -50,7 +56,6 @@ else:
 
 # --- Setup logger
 logging.basicConfig(level=FLAGS.logging_level)
-logger = logging.getLogger(__name__)
 
 # --- Configures random generator
 if FLAGS.seed:
@@ -58,16 +63,16 @@ if FLAGS.seed:
 else:
   rnd = np.random.RandomState()
 
-scene = Scene(frame_start=FLAGS.frame_start,
-              frame_end=FLAGS.frame_end,
-              frame_rate=FLAGS.frame_rate,
-              step_rate=FLAGS.step_rate,
-              resolution=(FLAGS.resolution, FLAGS.resolution))
+scene = core.Scene(frame_start=FLAGS.frame_start,
+                   frame_end=FLAGS.frame_end,
+                   frame_rate=FLAGS.frame_rate,
+                   step_rate=FLAGS.step_rate,
+                   resolution=(FLAGS.width, FLAGS.height))
 
 
 # --- Download a few models locally
-asset_source = KLEVR(uri=FLAGS.assets)
-simulator = Simulator(scene)
+asset_source = klevr.KLEVR(uri=FLAGS.assets)
+simulator = simulator.Simulator(scene)
 
 # --- Scene static geometry
 floor, lights, camera = asset_source.get_scene()
@@ -80,12 +85,12 @@ objects = [asset_source.get_random_object(rnd) for _ in range(nr_objects)]
 for obj in objects:
   collision = simulator.add(obj)
   trial = 0
-  while collision and trial < 100:
+  while collision and trial < FLAGS.max_placement_trials:
     obj.position, obj.rotation = asset_source.get_random_object_pose(obj.name, rnd)
     collision = simulator.check_overlap(obj)
     trial += 1
   if collision:
-    raise RuntimeError('Failed to place', obj)
+    raise RuntimeError("Failed to place", obj)
 
 # --- run the physics simulation
 animation = simulator.run()
@@ -93,7 +98,8 @@ animation = simulator.run()
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-renderer = Blender(scene)
+renderer = blender.Blender(scene)
+renderer.set_ambient_light()
 renderer.add(floor)
 for light in lights:
   renderer.add(light)
@@ -106,10 +112,10 @@ for obj in objects:
   for frame_id in range(scene.frame_start, scene.frame_end):
     obj.position = animation[obj]["position"][frame_id]
     obj.quaternion = animation[obj]["quaternion"][frame_id]
-    obj.keyframe_insert('position', frame_id)
-    obj.keyframe_insert('quaternion', frame_id)
+    obj.keyframe_insert("position", frame_id)
+    obj.keyframe_insert("quaternion", frame_id)
 
 # --- Render or create the .blend file
-renderer.render(path=FLAGS.output)
-
-
+output_path = pathlib.Path(FLAGS.output)
+output_path.mkdir(parents=True, exist_ok=True)
+renderer.render(path=output_path)
