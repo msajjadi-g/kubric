@@ -123,6 +123,50 @@ def _add_object(obj: core.Light):
   return -3, {}
 
 
+@add_object.register(core.Cube)
+def _add_object(obj: core.Cube):
+  collision_idx = pb.createCollisionShape(pb.GEOM_BOX, halfExtents=obj.scale)
+  visual_idx = -1
+  mass = 0 if obj.static else obj.mass
+  box_idx = pb.createMultiBody(mass, collision_idx, visual_idx, obj.position,
+                               wxyz2xyzw(obj.quaternion))
+
+  setters = {
+      'position': Setter(box_idx, set_position),
+      'quaternion': Setter(box_idx, set_quaternion),
+      # TODO 'scale': Setter(object_idx, scale)  # Pybullet does not support rescaling. So we should warn
+      'velocity': Setter(box_idx, set_velocity),
+      'angular_velocity': Setter(box_idx, set_angular_velocity),
+      'mass': lambda x: None if obj.static else Setter(box_idx, set_mass),
+      'friction': Setter(box_idx, set_friction),
+      'restitution': Setter(box_idx, set_restitution),
+  }
+  return box_idx, setters
+
+
+@add_object.register(core.Sphere)
+def _add_object(obj: core.Cube):
+  radius = obj.scale[0]
+  assert radius == obj.scale[1] == obj.scale[2], obj.scale  # only uniform scaling
+  collision_idx = pb.createCollisionShape(pb.GEOM_SPHERE, radius=radius)
+  visual_idx = -1
+  mass = 0 if obj.static else obj.mass
+  sphere_idx = pb.createMultiBody(mass, collision_idx, visual_idx, obj.position,
+                                  wxyz2xyzw(obj.quaternion))
+
+  setters = {
+      'position': Setter(sphere_idx, set_position),
+      'quaternion': Setter(sphere_idx, set_quaternion),
+      # TODO 'scale': Setter(object_idx, scale)  # Pybullet does not support rescaling. So we should warn
+      'velocity': Setter(sphere_idx, set_velocity),
+      'angular_velocity': Setter(sphere_idx, set_angular_velocity),
+      'mass': lambda x: None if obj.static else Setter(sphere_idx, set_mass),
+      'friction': Setter(sphere_idx, set_friction),
+      'restitution': Setter(sphere_idx, set_restitution),
+  }
+  return sphere_idx, setters
+
+
 @add_object.register(FileBasedObject)
 def _add_object(obj: FileBasedObject):
   # TODO: support other file-formats
