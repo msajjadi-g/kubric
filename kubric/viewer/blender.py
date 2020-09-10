@@ -318,6 +318,20 @@ def _add_object(obj: core.PerspectiveCamera):
   return camera_obj, setters
 
 
+@add_object.register(core.OrthographicCamera)
+def _add_object(obj: core.OrthographicCamera):
+  camera = bpy.data.cameras.new(obj.uid)
+  camera.type = 'ORTHO'
+  camera_obj = bpy.data.objects.new(obj.uid, camera)
+
+  setters = {
+      'position': AttributeSetter(camera_obj, 'location'),
+      'quaternion': AttributeSetter(camera_obj, 'rotation_quaternion'),
+      'scale': AttributeSetter(camera_obj, 'scale'),
+      'orthographic_scale': AttributeSetter(camera, 'ortho_scale')}
+  return camera_obj, setters
+
+
 @add_object.register(core.PrincipledBSDFMaterial)
 def _add_object(obj: core.PrincipledBSDFMaterial):
   mat = bpy.data.materials.new(obj.uid)
@@ -371,7 +385,7 @@ def _add_object(obj: core.FlatMaterial):
   mat = bpy.data.materials.new('Holdout')
   mat.use_nodes = True
   tree = mat.node_tree
-  tree.remove(tree.nodes['Principled BSDF'])  # remove the default shader
+  tree.nodes.remove(tree.nodes['Principled BSDF'])  # remove the default shader
 
   output_node = tree.nodes['Material Output']
 

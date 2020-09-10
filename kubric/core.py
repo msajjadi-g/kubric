@@ -21,6 +21,14 @@ from traitlets import default, validate
 import kubric.traits as kt
 from kubric.color import Color
 
+__all__ = (
+    "Asset", "Scene", "AttributeSetter",
+    "Material", "PrincipledBSDFMaterial", "FlatMaterial", "MeshChromeMaterial",
+    "Object3D", "PhysicalObject", "Cube", "Sphere", "FileBasedObject",
+    "Light", "DirectionalLight", "RectAreaLight", "PointLight",
+    "Camera", "PerspectiveCamera", "OrthographicCamera",
+)
+
 
 class Asset(tl.HasTraits):
   uid = tl.Unicode(read_only=True)
@@ -88,8 +96,6 @@ class FlatMaterial(Material):
 class MeshChromeMaterial(Material):
   color = kt.RGBA(default_value=Color.from_name('white'))
   roughness = tl.Float(0.4)
-
-
 
 
 # ## ### ####  3D Objects  #### ### ## #
@@ -201,7 +207,7 @@ class PerspectiveCamera(Camera):
 
 
 class OrthographicCamera(Camera):
-  pass
+  orthographic_scale = tl.Float(6.0)
 
 
 # ## ### ####  Scene  #### ### ## #
