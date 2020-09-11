@@ -16,3 +16,5 @@ from kubric.core import *
 from kubric.color import Color
 from kubric.viewer.blender import Blender
 from kubric.simulator import Simulator
+from kubric.post_processing import get_render_layers_from_exr
+from kubric.assets.utils import mm3hash

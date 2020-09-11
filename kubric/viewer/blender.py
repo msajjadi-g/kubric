@@ -210,10 +210,10 @@ class Blender:
     path = pathlib.Path(path)
     bpy.context.scene.cycles.use_adaptive_sampling = True  # speeds up rendering
     bpy.context.scene.view_layers[0].cycles.use_denoising = True  # improves the output quality
-    bpy.context.scene.render.filepath = str(path / "frame_")
+    bpy.context.scene.render.filepath = str(path / "images/frame_")
 
     self.activate_render_passes()
-    self.set_up_exr_output(path / "frame_")
+    self.set_up_exr_output(path / "exr" / "frame_")
 
     bpy.ops.wm.save_mainfile(filepath=str(path / "scene.blend"))
 
@@ -233,10 +233,10 @@ def _add_object(obj: core.Cube):
   bpy.ops.mesh.primitive_cube_add()
   cube = bpy.context.active_object
   return cube, {
-      'position': AttributeSetter(cube, 'location'),
-      'quaternion': AttributeSetter(cube, 'rotation_quaternion'),
-      'scale': AttributeSetter(cube, 'scale'),
-      'material': AttributeSetter(cube, 'active_material')
+      'position': core.AttributeSetter(cube, 'location'),
+      'quaternion': core.AttributeSetter(cube, 'rotation_quaternion'),
+      'scale': core.AttributeSetter(cube, 'scale'),
+      'material': core.AttributeSetter(cube, 'active_material')
   }
 
 
@@ -246,10 +246,10 @@ def _add_object(obj: core.Sphere):
   bpy.ops.object.shade_smooth()
   cube = bpy.context.active_object
   return cube, {
-      'position': AttributeSetter(cube, 'location'),
-      'quaternion': AttributeSetter(cube, 'rotation_quaternion'),
-      'scale': AttributeSetter(cube, 'scale'),
-      'material': AttributeSetter(cube, 'active_material')
+      'position': core.AttributeSetter(cube, 'location'),
+      'quaternion': core.AttributeSetter(cube, 'rotation_quaternion'),
+      'scale': core.AttributeSetter(cube, 'scale'),
+      'material': core.AttributeSetter(cube, 'active_material')
   }
 
 
@@ -325,10 +325,10 @@ def _add_object(obj: core.OrthographicCamera):
   camera_obj = bpy.data.objects.new(obj.uid, camera)
 
   setters = {
-      'position': AttributeSetter(camera_obj, 'location'),
-      'quaternion': AttributeSetter(camera_obj, 'rotation_quaternion'),
-      'scale': AttributeSetter(camera_obj, 'scale'),
-      'orthographic_scale': AttributeSetter(camera, 'ortho_scale')}
+      'position': core.AttributeSetter(camera_obj, 'location'),
+      'quaternion': core.AttributeSetter(camera_obj, 'rotation_quaternion'),
+      'scale': core.AttributeSetter(camera_obj, 'scale'),
+      'orthographic_scale': core.AttributeSetter(camera, 'ortho_scale')}
   return camera_obj, setters
 
 
@@ -418,9 +418,9 @@ def _add_object(obj: core.FlatMaterial):
   tree.links.new(overall_mix_node.outputs['Shader'], output_node.inputs['Surface'])
 
   return mat, {
-      'color': AttributeSetter(emission_node.inputs['Color'], 'default_value'),
-      'holdout': AttributeSetter(holdout_mix_node.inputs['Fac'], 'default_value'),
-      'indirect_visibility': AttributeSetter(indirect_mix_node.inputs['Fac'], 'default_value'),
+      'color': core.AttributeSetter(emission_node.inputs['Color'], 'default_value'),
+      'holdout': core.AttributeSetter(holdout_mix_node.inputs['Fac'], 'default_value'),
+      'indirect_visibility': core.AttributeSetter(indirect_mix_node.inputs['Fac'], 'default_value'),
   }
 
 
